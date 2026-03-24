@@ -1,4 +1,6 @@
 # Merge-Sort
+Martin Rog
+1792195
 
 ## Werking van het algoritme
 
