@@ -1,5 +1,8 @@
 #include <iostream>
 #include <vector>
+#include <thread>
+#include <omp.h>
+#include <fstream>
 using namespace std;
 
 // Merges two subarrays of arr[].
@@ -57,7 +60,7 @@ void merge(vector<int>& arr, int left,
 // begin is for left index and end is right index
 // of the sub-array of arr to be sorted
 void mergeSort(vector<int>& arr, int left, int right){
-    
+
     if (left >= right)
         return;
 
@@ -67,16 +70,87 @@ void mergeSort(vector<int>& arr, int left, int right){
     merge(arr, left, mid, right);
 }
 
+// Parallele versie van merge sort.
+// numThreads geeft aan hoeveel threads deze aanroep maximaal mag gebruiken.
+void threadedMergeSort(vector<int>& arr, int left, int right, int numThreads) {
+
+    if (left >= right)
+        return;
+
+    // Als er nog maar 1 thread beschikbaar is,
+    // ga dan verder met de sequentiële versie.
+    if (numThreads <= 1) {
+        mergeSort(arr, left, right);
+        return;
+    }
+
+    int mid = left + (right - left) / 2;
+
+    // Verdeel het aantal beschikbare threads over beide helften.
+    // Bijvoorbeeld:
+    // 4 -> links 2, rechts 2
+    // 3 -> links 1, rechts 2
+    int leftThreads = numThreads / 2;
+    int rightThreads = numThreads - leftThreads;
+
+    // Sorteer linker- en rechterhelft parallel.
+    thread leftThread(threadedMergeSort, ref(arr), left, mid, leftThreads);
+    thread rightThread(threadedMergeSort, ref(arr), mid + 1, right, rightThreads);
+
+    // Wacht tot beide threads klaar zijn voordat we gaan mergen.
+    leftThread.join();
+    rightThread.join();
+
+    // Voeg daarna de twee gesorteerde helften samen.
+    merge(arr, left, mid, right);
+}
+
+
+vector<int> readArray(const string& filename) {
+    ifstream file(filename);
+
+    if (!file) {
+        cerr << "Error: file niet gevonden!" << endl;
+        exit(1);
+    }
+
+    int n;
+    file >> n;
+
+    vector<int> arr(n);
+
+    for (int i = 0; i < n; i++) {
+        file >> arr[i];
+    }
+
+    return arr;
+}
+
 // Driver code
-int main(){
-    
-    vector<int> arr = {38, 27, 43, 10};
+int main(int argc, char* argv[]){
+    if (argc < 2) {
+        cerr << "Usage: " << argv[0] << " <input_file>" << endl;
+        return 1;
+    }
+
+    vector<int> arr = readArray(std::string(argv[1]));
     int n = arr.size();
 
-    mergeSort(arr, 0, n - 1);
-    for (int i = 0; i < arr.size(); i++)
-        cout << arr[i] << " ";
-    cout << endl;
-    
+    // Kies hier het aantal threads: 1, 2, 4 of 8
+    int numThreads = 1;
+
+    double start = omp_get_wtime();
+
+    threadedMergeSort(arr, 0, n - 1, numThreads);
+
+    double end = omp_get_wtime();
+
+    cout << "Threads: " << numThreads 
+        << " | Tijd: " << (end - start) << " sec" << endl;
+
+    // for (int i = 0; i < arr.size(); i++)
+    //     cout << arr[i] << " ";
+    // cout << endl;
+
     return 0;
 }
